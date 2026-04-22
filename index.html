@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeminiOS - Web UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+
+        /* ライトテーマ用スクロールバー（ブラウザアプリ用） */
+        .light-scrollbar::-webkit-scrollbar { width: 12px; height: 12px; }
+        .light-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); }
+        .light-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.25); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box; }
+        .light-scrollbar::-webkit-scrollbar-thumb:hover { background-color: rgba(0, 0, 0, 0.45); }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('https://i.imgur.com/GyRFnIJ.jpg') center/cover no-repeat fixed;
+            color: white;
+            user-select: none;
+        }
+
+        .desktop-icon {
+            width: 80px;
+            text-align: center;
+            padding: 10px 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            z-index: 10;
+            position: relative;
+        }
+        .desktop-icon:hover { background: rgba(255, 255, 255, 0.1); }
+        .desktop-icon i { font-size: 2.5rem; text-shadow: 0 2px 4px rgba(0,0,0,0.5); margin-bottom: 5px; }
+        .desktop-icon-text { font-size: 0.8rem; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+
+        /* ウィンドウのスタイル (基本) */
+        .os-window {
+            transition: transform 0.1s;
+        }
+        .window-header { cursor: move; }
+        .window-header button { transition: all 0.2s; }
+        
+        /* リキッドグラス（Mac風すりガラス）エフェクト */
+        .liquid-glass-dark {
+            background: rgba(30, 30, 40, 0.45); /* 暗めの半透明 */
+            backdrop-filter: blur(25px) saturate(180%);
+            -webkit-backdrop-filter: blur(25px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .liquid-glass-header {
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .liquid-glass-panel {
+            background: rgba(15, 15, 20, 0.55);
+            backdrop-filter: blur(25px) saturate(180%);
+            -webkit-backdrop-filter: blur(25px) saturate(180%);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .terminal-content { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 0.9rem; }
+        .terminal-input-row { display: flex; align-items: center; margin-top: 5px; }
+        .terminal-input { background: transparent; border: none; color: #fff; outline: none; flex: 1; font-family: inherit; margin-left: 8px; }
+
+        /* ブート画面 */
+        #boot-screen {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #000; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 1s ease-in-out;
+        }
+        .boot-logo { font-size: 5rem; color: #818cf8; animation: pulse 2s infinite; }
+        .boot-logo-img { animation: pulse 2s infinite; object-fit: contain; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
+
+        /* Wikipedia要約表示用のモダンデザイン */
+        .wiki-summary {
+            color: #374151;
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+        .wiki-summary p { margin-bottom: 1.2em; }
+        .wiki-summary a { color: #4f46e5; text-decoration: none; border-bottom: 1px solid rgba(79, 70, 229, 0.3); transition: all 0.2s; font-weight: 500; }
+        .wiki-summary a:hover { color: #312e81; border-bottom-color: #312e81; background: rgba(79, 70, 229, 0.05); }
+        .wiki-summary ul { list-style-type: disc; margin-left: 2em; margin-bottom: 1.2em; }
+        .wiki-summary b, .wiki-summary strong { color: #111827; font-weight: 700; }
+        
+        /* 全文表示用の見出しスタイル */
+        .wiki-summary h2 { font-size: 1.5rem; font-weight: bold; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 1px solid #d1d5db; padding-bottom: 0.2em; color: #111827; }
+        .wiki-summary h3 { font-size: 1.25rem; font-weight: bold; margin-top: 1.2em; margin-bottom: 0.5em; color: #1f2937; }
+        .wiki-summary h4 { font-size: 1.1rem; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #374151; }
+
+        /* 画像、表、Infobox、注釈、目次など不要な要素をすべて非表示 */
+        .wiki-summary img, 
+        .wiki-summary figure, 
+        .wiki-summary .infobox, 
+        .wiki-summary table,
+        .wiki-summary .thumb,
+        .wiki-summary .mw-empty-elt,
+        .wiki-summary .reference,
+        .wiki-summary .noprint,
+        .wiki-summary .hatnote,
+        .wiki-summary .ambox,
+        .wiki-summary .toc { 
+            display: none !important; 
+        }
+
+        /* ウィンドウアニメーション */
+        .window-enter {
+            animation: winEnter 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes winEnter {
+            0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .window-leave {
+            transition: opacity 0.2s ease-in, transform 0.2s ease-in !important;
+            opacity: 0 !important;
+            transform: scale(0.95) translateY(5px) !important;
+            pointer-events: none;
+        }
+
+        /* ログイン失敗時のシェイクアニメーション */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake {
+            animation: shake 0.2s ease-in-out 0s 2;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative flex flex-col">
+
+    <!-- ブートスクリーン -->
+    <div id="boot-screen">
+        <img src="https://asset.watch.impress.co.jp/img/ktw/docs/1583/273/icon_l.jpg" class="w-32 h-32 mb-6 boot-logo-img drop-shadow-[0_0_20px_rgba(99,102,241,0.6)] rounded-full" alt="GeminiOS Logo" onerror="this.style.display='none'; document.getElementById('boot-logo-fallback').style.display='block';">
+        <i id="boot-logo-fallback" class="fa-solid fa-sparkles boot-logo mb-6" style="display: none;"></i>
+        <h1 class="text-4xl font-light tracking-widest text-white mb-2">GeminiOS</h1>
+        <p class="text-gray-400 font-mono text-sm" id="boot-text">Loading Kernel...</p>
+        <div class="w-64 h-1 bg-gray-800 rounded mt-8 overflow-hidden">
+            <div class="h-full bg-indigo-500 rounded transition-all duration-100" id="boot-progress" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- ロック画面 -->
+    <div id="lock-screen" class="hidden fixed inset-0 z-[9000] flex flex-col items-center justify-center backdrop-blur-xl bg-black/40 transition-opacity duration-1000 opacity-0">
+        <div class="flex flex-col items-center liquid-glass-dark p-10 rounded-2xl shadow-2xl">
+            <img src="https://asset.watch.impress.co.jp/img/ktw/docs/1583/273/icon_l.jpg" class="w-24 h-24 mb-4 drop-shadow-[0_0_15px_rgba(99,102,241,0.8)] rounded-full" alt="User" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <i class="fa-solid fa-user text-6xl text-white/50 mb-4" style="display: none;"></i>
+            <h2 class="text-2xl font-light text-white mb-6 tracking-wide">Gemini User</h2>
+            
+            <div class="relative w-64">
+                <input type="password" id="login-password" class="w-full bg-black/30 border border-white/20 rounded-full py-2 px-4 pr-10 text-white focus:outline-none focus:border-indigo-400 focus:bg-black/50 transition-all text-center tracking-widest" placeholder="Password">
+                <button id="login-btn" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white transition-colors">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+            
+            <p class="text-white/50 text-xs mt-4 tracking-wide">ヒント: OSの名前の一部で小文字です</p>
+            <p id="login-error" class="text-red-400 text-xs mt-2 hidden absolute -bottom-6">パスワードが違います</p>
+        </div>
+    </div>
+
+    <!-- デスクトップ -->
+    <div id="desktop" class="flex-1 relative p-4 flex flex-col gap-4 flex-wrap content-start z-10 w-full h-full pb-16">
+        <!-- デスクトップアイコンがここに生成されます -->
+    </div>
+
+    <!-- ウィンドウコンテナ -->
+    <div id="window-container" class="absolute top-0 left-0 w-full h-full pointer-events-none z-20">
+        <!-- ウィンドウがここに生成されます（ポインターイベントは個々のウィンドウで有効化） -->
+    </div>
+
+    <!-- スタートメニュー (デフォルト非表示) -->
+    <div id="start-menu" class="absolute bottom-14 left-2 w-80 liquid-glass-dark rounded-xl p-4 hidden z-50 transform transition-all">
+        <div class="flex items-center gap-3 border-b border-white/10 pb-4 mb-4 text-white">
+            <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-xl shadow-lg">
+                <i class="fa-solid fa-user"></i>
+            </div>
+            <div>
+                <div class="font-bold tracking-wide">Gemini User</div>
+                <div class="text-xs text-gray-300">admin</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-3 gap-4" id="start-menu-apps">
+            <!-- スタートメニューのアプリ -->
+        </div>
+    </div>
+
+    <!-- タスクバー -->
+    <div id="taskbar" class="h-12 w-full liquid-glass-panel absolute bottom-0 left-0 flex items-center px-2 z-50">
+        <button id="btn-start" class="h-10 w-10 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors text-indigo-400 text-xl">
+            <img src="https://asset.watch.impress.co.jp/img/ktw/docs/1583/273/icon_l.jpg" class="w-7 h-7 drop-shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full" alt="Start" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <i class="fa-solid fa-sparkles" style="display: none;"></i>
+        </button>
+        <div id="taskbar-apps" class="flex-1 flex items-center gap-1 px-2 h-full overflow-hidden">
+            <!-- 開いているアプリのアイコン -->
+        </div>
+        <div class="px-4 text-sm font-mono flex items-center gap-4">
+            <div class="flex gap-2 text-gray-300">
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-volume-high"></i>
+                <i class="fa-solid fa-battery-full"></i>
+            </div>
+            <span id="clock" class="font-bold text-gray-200">00:00</span>
+        </div>
+    </div>
+
+    <!-- ウィンドウテンプレート -->
+    <template id="window-template">
+        <div class="os-window absolute rounded-xl flex flex-col overflow-hidden liquid-glass-dark pointer-events-auto" style="width: 600px; height: 400px; top: 10%; left: 15%;">
+            <div class="window-header liquid-glass-header text-gray-200 px-4 py-2 flex justify-between items-center z-10">
+                <div class="flex items-center gap-2">
+                    <i class="win-icon text-indigo-400"></i>
+                    <span class="win-title text-sm font-medium tracking-wide"></span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button class="win-minimize w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors focus:outline-none" title="最小化">
+                        <i class="fa-solid fa-minus text-xs"></i>
+                    </button>
+                    <button class="win-maximize w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors focus:outline-none" title="最大化">
+                        <i class="fa-regular fa-square text-xs"></i>
+                    </button>
+                    <button class="win-close w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 text-gray-400 hover:text-white transition-colors focus:outline-none" title="閉じる">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="window-body flex-1 relative overflow-hidden flex flex-col min-h-0">
+                <!-- コンテンツ -->
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // --- 設定とデータ ---
+        const APPS = {
+            terminal: { id: 'terminal', title: 'Terminal', icon: 'fa-solid fa-terminal', width: 650, height: 400 },
+            browser: { id: 'browser', title: 'Web Browser', icon: 'fa-solid fa-globe', width: 800, height: 500 },
+            files: { id: 'files', title: 'Files', icon: 'fa-solid fa-folder-open', width: 600, height: 400 },
+            about: { id: 'about', title: 'System Info', icon: 'fa-solid fa-microchip', width: 400, height: 300 },
+            editor: { id: 'editor', title: 'Text Editor', icon: 'fa-solid fa-file-lines', width: 500, height: 400 }
+        };
+
+        // --- 仮想ファイルシステム (グローバル) ---
+        let fileSystem = {
+            '~': ['documents', 'pictures', 'readme.txt', 'secret.txt', '.bashrc', '.profile'],
+            '~/documents': ['work.doc', 'ideas.txt'],
+            '~/pictures': ['logo.png', 'bg.jpg']
+        };
+        
+        let fileContents = {
+            '~/readme.txt': 'Thank you for trying GeminiOS!\nYou can edit this file by double-clicking it in the Files app.',
+            '~/secret.txt': 'You found a secret message. AI is cool. ✨',
+            '~/documents/ideas.txt': '1. Make a great OS\n2. Add text editor\n3. Profit!',
+            '~/.bashrc': '# .bashrc\nalias ll="ls -l"',
+            '~/.profile': '# .profile'
+        };
+
+        // --- システム状態 ---
+        let zIndexCounter = 100;
+        let windows = {};
+        const state = {
+            draggedWindow: null,
+            offsetX: 0,
+            offsetY: 0
+        };
+
+        // --- ブートシーケンス ---
+        window.addEventListener('load', () => {
+            const bootTexts = ["Loading Kernel...", "Initializing Drivers...", "Mounting File System...", "Starting Gemini Desktop Environment..."];
+            const textEl = document.getElementById('boot-text');
+            const progressEl = document.getElementById('boot-progress');
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 100) progress = 100;
+                progressEl.style.width = `${progress}%`;
+                
+                if (progress > 25 && progress < 50) textEl.innerText = bootTexts[1];
+                else if (progress > 50 && progress < 80) textEl.innerText = bootTexts[2];
+                else if (progress >= 80) textEl.innerText = bootTexts[3];
+
+                if (progress === 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        const bootScreen = document.getElementById('boot-screen');
+                        bootScreen.style.opacity = '0';
+                        setTimeout(() => {
+                            bootScreen.remove();
+                            showLockScreen(); // ブート後にロック画面を表示
+                        }, 1000);
+                    }, 500);
+                }
+            }, 200);
+        });
+
+        // --- ロック画面 ---
+        function showLockScreen() {
+            const lockScreen = document.getElementById('lock-screen');
+            const pwInput = document.getElementById('login-password');
+            const loginBtn = document.getElementById('login-btn');
+            const errorMsg = document.getElementById('login-error');
+
+            lockScreen.classList.remove('hidden');
+            // 少し待ってからフェードイン
+            setTimeout(() => {
+                lockScreen.classList.remove('opacity-0');
+                pwInput.focus();
+            }, 50);
+
+            const tryLogin = () => {
+                if (pwInput.value === 'gemini') {
+                    errorMsg.classList.add('hidden');
+                    lockScreen.classList.add('opacity-0');
+                    setTimeout(() => {
+                        lockScreen.remove();
+                        initOS(); // ログイン成功でOSを初期化
+                    }, 1000);
+                } else {
+                    errorMsg.classList.remove('hidden');
+                    pwInput.value = '';
+                    pwInput.focus();
+                    pwInput.parentElement.classList.add('animate-shake');
+                    setTimeout(() => pwInput.parentElement.classList.remove('animate-shake'), 400);
+                }
+            };
+
+            pwInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') tryLogin();
+            });
+            loginBtn.addEventListener('click', tryLogin);
+        }
+
+        // --- OS初期化 ---
+        function initOS() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            renderDesktopIcons();
+            renderStartMenu();
+
+            // イベントリスナー
+            document.getElementById('btn-start').addEventListener('click', toggleStartMenu);
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#start-menu') && !e.target.closest('#btn-start')) {
+                    document.getElementById('start-menu').classList.add('hidden');
+                }
+            });
+
+            // ドラッグ用のグローバルイベント
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+
+            // 初期ウィンドウを開く
+            openWindow('terminal');
+        }
+
+        // --- UIレンダリング ---
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function renderDesktopIcons() {
+            const desktop = document.getElementById('desktop');
+            ['terminal', 'browser', 'files', 'about'].forEach(appId => {
+                const app = APPS[appId];
+                const div = document.createElement('div');
+                div.className = 'desktop-icon text-white';
+                div.innerHTML = `<i class="${app.icon}"></i><div class="desktop-icon-text mt-1">${app.title}</div>`;
+                div.ondblclick = () => openWindow(appId);
+                // スマホ用タップ対応
+                let tapCount = 0;
+                div.ontouchend = (e) => {
+                    tapCount++;
+                    if (tapCount === 1) {
+                        setTimeout(() => tapCount = 0, 300);
+                    } else if (tapCount === 2) {
+                        openWindow(appId);
+                        tapCount = 0;
+                    }
+                };
+                desktop.appendChild(div);
+            });
+        }
+
+        function renderStartMenu() {
+            const menu = document.getElementById('start-menu-apps');
+            Object.keys(APPS).forEach(appId => {
+                const app = APPS[appId];
+                const btn = document.createElement('button');
+                btn.className = 'flex flex-col items-center justify-center p-3 rounded hover:bg-white/10 transition-colors text-white';
+                btn.innerHTML = `<i class="${app.icon} text-2xl mb-2 text-indigo-400"></i><span class="text-xs">${app.title}</span>`;
+                btn.onclick = () => {
+                    openWindow(appId);
+                    document.getElementById('start-menu').classList.add('hidden');
+                };
+                menu.appendChild(btn);
+            });
+        }
+
+        function toggleStartMenu() {
+            document.getElementById('start-menu').classList.toggle('hidden');
+        }
+
+        // --- ウィンドウ管理 ---
+        function openWindow(appId, options = null) {
+            if (windows[appId]) {
+                bringToFront(windows[appId].element);
+                // Editorが既に開いている場合は内容を更新
+                if (appId === 'editor' && options) {
+                    initEditor(windows[appId].element.querySelector('.window-body'), options);
+                }
+                return;
+            }
+
+            const app = APPS[appId];
+            const template = document.getElementById('window-template');
+            const clone = template.content.cloneNode(true);
+            const winEl = clone.querySelector('.os-window');
+            
+            winEl.id = `win-${appId}`;
+            winEl.classList.add('window-enter'); // アニメーション追加
+            
+            // 画面サイズを取得して、ウィンドウが大きすぎないように制限
+            const maxWidth = window.innerWidth - 20; // 左右に少し余裕を持たせる
+            const maxHeight = window.innerHeight - 60; // タスクバーの分と余裕を持たせる
+            
+            const winWidth = Math.min(app.width, maxWidth);
+            const winHeight = Math.min(app.height, maxHeight);
+            
+            winEl.style.width = `${winWidth}px`;
+            winEl.style.height = `${winHeight}px`;
+            
+            // ウィンドウが重なりすぎないように少しずつずらす位置を計算 (px単位)
+            const numWindows = Object.keys(windows).length;
+            const offset = numWindows * 30;
+            
+            let initialTop = 40 + (offset % 100); // 画面端に行き過ぎたら戻す
+            let initialLeft = 40 + (offset % 150);
+
+            // 画面の右や下にはみ出さないように最終調整
+            if (initialLeft + winWidth > window.innerWidth) {
+                initialLeft = Math.max(0, window.innerWidth - winWidth - 10);
+            }
+            if (initialTop + winHeight > window.innerHeight - 48) { // 48pxはタスクバー
+                initialTop = Math.max(0, window.innerHeight - winHeight - 48 - 10);
+            }
+
+            winEl.style.top = `${initialTop}px`;
+            winEl.style.left = `${initialLeft}px`;
+
+            // ヘッダー設定
+            winEl.querySelector('.win-icon').className = `win-icon ${app.icon} text-indigo-400`;
+            winEl.querySelector('.win-title').innerText = app.title;
+
+            // コントロール
+            winEl.querySelector('.win-close').onclick = () => closeWindow(appId);
+            winEl.querySelector('.win-maximize').onclick = () => maximizeWindow(winEl);
+            winEl.querySelector('.win-minimize').onclick = () => minimizeWindow(appId);
+
+            // ドラッグ機能
+            const header = winEl.querySelector('.window-header');
+            header.addEventListener('mousedown', (e) => startDrag(e, winEl));
+            header.addEventListener('touchstart', (e) => startDrag(e.touches[0], winEl), {passive: false});
+            winEl.addEventListener('mousedown', () => bringToFront(winEl));
+            winEl.addEventListener('touchstart', () => bringToFront(winEl), {passive: true});
+
+            // コンテンツ注入
+            const body = winEl.querySelector('.window-body');
+            body.innerHTML = getAppContent(appId);
+
+            document.getElementById('window-container').appendChild(winEl);
+            
+            windows[appId] = { element: winEl, minimized: false, maxmized: false, prevRect: null };
+            bringToFront(winEl);
+            addTaskbarIcon(appId);
+
+            // アプリ固有の初期化
+            if (appId === 'terminal') initTerminal(body);
+            if (appId === 'editor') initEditor(body, options);
+            if (appId === 'files') initFiles(body);
+            if (appId === 'browser') initBrowser(body);
+        }
+
+        function closeWindow(appId) {
+            if (windows[appId]) {
+                const winEl = windows[appId].element;
+                winEl.classList.add('window-leave'); // 閉じるアニメーション開始
+                removeTaskbarIcon(appId);
+                // アニメーションが終わるのを待ってから削除
+                setTimeout(() => {
+                    winEl.remove();
+                    delete windows[appId];
+                }, 200);
+            }
+        }
+
+        function maximizeWindow(winEl) {
+            const appId = winEl.id.replace('win-', '');
+            const winData = windows[appId];
+            
+            if (winData.maxmized) {
+                // 元に戻す
+                winEl.style.width = winData.prevRect.width;
+                winEl.style.height = winData.prevRect.height;
+                winEl.style.top = winData.prevRect.top;
+                winEl.style.left = winData.prevRect.left;
+                winEl.style.borderRadius = '0.75rem';
+                winData.maxmized = false;
+            } else {
+                // 最大化
+                winData.prevRect = {
+                    width: winEl.style.width,
+                    height: winEl.style.height,
+                    top: winEl.style.top,
+                    left: winEl.style.left
+                };
+                winEl.style.top = '0';
+                winEl.style.left = '0';
+                winEl.style.width = '100%';
+                // タスクバーの分(3rem = 48px)を引く
+                winEl.style.height = 'calc(100% - 3rem)';
+                winEl.style.borderRadius = '0';
+                winData.maxmized = true;
+            }
+        }
+
+        function minimizeWindow(appId) {
+            const winEl = windows[appId].element;
+            winEl.style.display = 'none';
+            windows[appId].minimized = true;
+            document.getElementById(`tb-icon-${appId}`).classList.add('opacity-50');
+        }
+
+        function restoreWindow(appId) {
+            const winEl = windows[appId].element;
+            winEl.style.display = 'flex';
+            windows[appId].minimized = false;
+            document.getElementById(`tb-icon-${appId}`).classList.remove('opacity-50');
+            bringToFront(winEl);
+        }
+
+        function bringToFront(winEl) {
+            zIndexCounter++;
+            winEl.style.zIndex = zIndexCounter;
+            
+            // アクティブなタスクバーアイコンのハイライト
+            const appId = winEl.id.replace('win-', '');
+            document.querySelectorAll('.tb-app-icon').forEach(el => el.classList.remove('bg-white/20'));
+            const tbIcon = document.getElementById(`tb-icon-${appId}`);
+            if(tbIcon) tbIcon.classList.add('bg-white/20');
+        }
+
+        // --- タスクバー管理 ---
+        function addTaskbarIcon(appId) {
+            const app = APPS[appId];
+            const tb = document.getElementById('taskbar-apps');
+            const btn = document.createElement('button');
+            btn.id = `tb-icon-${appId}`;
+            btn.className = 'tb-app-icon h-10 w-10 rounded flex items-center justify-center hover:bg-white/10 transition-colors text-white text-lg bg-white/20';
+            btn.innerHTML = `<i class="${app.icon}"></i>`;
+            btn.onclick = () => {
+                if (windows[appId].minimized) {
+                    restoreWindow(appId);
+                } else {
+                    if (windows[appId].element.style.zIndex == zIndexCounter) {
+                        minimizeWindow(appId);
+                    } else {
+                        bringToFront(windows[appId].element);
+                    }
+                }
+            };
+            tb.appendChild(btn);
+        }
+
+        function removeTaskbarIcon(appId) {
+            const btn = document.getElementById(`tb-icon-${appId}`);
+            if (btn) btn.remove();
+        }
+
+        // --- ドラッグロジック ---
+        function startDrag(e, winEl) {
+            if (e.target.closest('button')) return; // ボタンクリック時はドラッグしない
+            if (windows[winEl.id.replace('win-', '')].maxmized) return;
+
+            state.draggedWindow = winEl;
+            const rect = winEl.getBoundingClientRect();
+            state.offsetX = e.clientX - rect.left;
+            state.offsetY = e.clientY - rect.top;
+            bringToFront(winEl);
+            document.body.style.cursor = 'move';
+        }
+
+        function onMouseMove(e) {
+            if (!state.draggedWindow) return;
+            let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            let clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            if (clientX === undefined) return;
+
+            const x = clientX - state.offsetX;
+            const y = clientY - state.offsetY;
+            
+            // 画面外に出ないように制限
+            const maxX = window.innerWidth - 100;
+            const maxY = window.innerHeight - 50;
+            
+            state.draggedWindow.style.left = `${Math.max(0, Math.min(x, maxX))}px`;
+            state.draggedWindow.style.top = `${Math.max(0, Math.min(y, maxY))}px`;
+        }
+
+        function onMouseUp() {
+            if (state.draggedWindow) {
+                state.draggedWindow = null;
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        // --- アプリのコンテンツ生成 ---
+        function getAppContent(appId) {
+            switch (appId) {
+                case 'about':
+                    return `
+                        <div class="p-4 h-full overflow-y-auto bg-transparent min-h-0 text-white">
+                            <div class="flex flex-col items-center justify-start min-h-full">
+                                <img src="https://asset.watch.impress.co.jp/img/ktw/docs/1583/273/icon_l.jpg" class="w-20 h-20 mb-3 mt-2 object-cover drop-shadow-[0_0_15px_rgba(99,102,241,0.8)] rounded-full shrink-0" alt="Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <i class="fa-solid fa-sparkles text-5xl text-indigo-500 mb-3 mt-2 drop-shadow-[0_0_15px_rgba(99,102,241,0.8)] shrink-0" style="display: none;"></i>
+                                <h2 class="text-2xl font-light mb-1 shrink-0">GeminiOS</h2>
+                                <p class="text-white/70 mb-4 text-sm shrink-0">Version 1.0.0 (Web Edition)</p>
+                                <div class="bg-white/10 rounded-lg p-4 w-full max-w-sm border border-white/20 text-sm shrink-0 mt-auto mb-auto backdrop-blur-sm shadow-lg">
+                                    <div class="flex justify-between mb-2"><span class="text-white/70">Kernel:</span> <span class="text-right">Linux 6.5.0-gemini</span></div>
+                                    <div class="flex justify-between mb-2"><span class="text-white/70">Memory:</span> <span class="text-right">8192 MB</span></div>
+                                    <div class="flex justify-between mb-2"><span class="text-white/70">Processor:</span> <span class="text-right">WebAssembly Virtual CPU</span></div>
+                                    <div class="flex justify-between"><span class="text-white/70">Environment:</span> <span class="text-right">HTML5 / JS / Tailwind</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                case 'browser':
+                    return `
+                        <div class="flex flex-col h-full bg-white/70 w-full overflow-hidden min-h-0 rounded-b-xl">
+                            <div class="bg-white/40 border-b border-gray-300/50 p-2 flex gap-2 items-center text-gray-700 shrink-0 backdrop-blur-md">
+                                <button class="hover:bg-black/10 px-2 rounded btn-home transition-colors" title="Home"><i class="fa-solid fa-house"></i></button>
+                                <div class="flex-1 flex bg-white/60 border border-gray-300/50 rounded px-2 items-center focus-within:border-indigo-400 focus-within:bg-white/90 transition-all">
+                                    <i class="fa-solid fa-magnifying-glass text-gray-500 mr-2 text-sm"></i>
+                                    <input type="text" id="browser-search" placeholder="Wikipediaで検索してEnter..." class="flex-1 py-1 text-sm focus:outline-none bg-transparent text-black" autocomplete="off">
+                                </div>
+                            </div>
+                            <div id="browser-content" class="flex-1 overflow-y-auto light-scrollbar bg-transparent text-black">
+                                <div class="flex flex-col items-center justify-center min-h-full p-4">
+                                    <i class="fa-brands fa-wikipedia-w text-6xl mb-6 text-gray-500/60"></i>
+                                    <div class="text-center">
+                                        <p class="text-lg text-gray-700 mb-2 font-medium">Wikipedia 検索</p>
+                                        <p class="text-xs text-gray-500">上の検索バーにキーワードを入力してEnterを押してください</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                case 'files':
+                    return `
+                        <div class="flex h-full bg-transparent files-app w-full text-white">
+                            <div class="w-48 bg-black/20 border-r border-white/10 p-2 text-sm">
+                                <ul class="space-y-1">
+                                    <li class="p-2 bg-indigo-500/40 text-white rounded cursor-pointer nav-item shadow-sm" data-path="~"><i class="fa-solid fa-house w-6 text-center"></i> Home</li>
+                                    <li class="p-2 hover:bg-white/10 rounded cursor-pointer text-gray-300 nav-item transition-colors" data-path="~/documents"><i class="fa-solid fa-file-lines w-6 text-center"></i> Documents</li>
+                                    <li class="p-2 hover:bg-white/10 rounded cursor-pointer text-gray-300 nav-item transition-colors" data-path="~/pictures"><i class="fa-solid fa-image w-6 text-center"></i> Pictures</li>
+                                </ul>
+                            </div>
+                            <div class="flex-1 flex flex-col min-w-0">
+                                <div class="bg-black/10 border-b border-white/10 p-2 flex items-center gap-2">
+                                    <button class="text-gray-300 hover:text-white px-2 btn-up transition-colors"><i class="fa-solid fa-arrow-up"></i></button>
+                                    <span class="text-sm text-gray-200 current-path truncate flex-1 font-mono">~</span>
+                                    <button class="text-gray-300 hover:text-white px-2 btn-refresh transition-colors" title="Refresh"><i class="fa-solid fa-rotate-right"></i></button>
+                                </div>
+                                <div class="flex-1 p-4 grid grid-cols-4 sm:grid-cols-5 gap-4 content-start overflow-y-auto files-grid">
+                                    <!-- icons dynamically generated -->
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                case 'terminal':
+                    return `
+                        <div class="h-full bg-black/40 p-2 terminal-content text-gray-200 overflow-y-auto min-h-0 flex flex-col rounded-b-xl" id="term-container" onclick="document.getElementById('term-input').focus()">
+                            <div id="term-output">
+                                <div class="text-green-400">Welcome to GeminiOS Terminal v1.0.0</div>
+                                <div class="text-white/60">Type 'help' to see available commands.</div><br>
+                            </div>
+                            <div class="terminal-input-row">
+                                <span class="text-indigo-300 font-bold">gemini@os</span><span class="text-white">:</span><span class="text-blue-300">~</span><span class="text-white">$</span>
+                                <input type="text" id="term-input" class="terminal-input" autocomplete="off" spellcheck="false">
+                            </div>
+                        </div>
+                    `;
+                case 'editor':
+                    return `
+                        <div class="flex flex-col h-full bg-black/30 w-full min-h-0 rounded-b-xl text-white">
+                            <div class="bg-black/20 px-4 py-1 text-xs text-gray-300 border-b border-white/10 flex items-center justify-between shrink-0">
+                                <div class="flex gap-4">
+                                    <span class="hover:text-white cursor-pointer font-bold text-indigo-300 btn-save transition-colors"><i class="fa-solid fa-floppy-disk mr-1"></i>Save</span>
+                                </div>
+                                <span class="editor-filepath italic text-white/50 font-mono"></span>
+                            </div>
+                            <textarea class="editor-textarea flex-1 bg-transparent text-gray-200 p-4 font-mono text-sm resize-none focus:outline-none whitespace-pre min-h-0" spellcheck="false"></textarea>
+                        </div>
+                    `;
+            }
+            return '';
+        }
+
+        // --- ターミナルロジック ---
+        function initTerminal(bodyEl) {
+            const input = bodyEl.querySelector('#term-input');
+            const output = bodyEl.querySelector('#term-output');
+            const container = bodyEl.querySelector('#term-container');
+
+            // 状態のみ保持 (fileSystemはグローバルを使用)
+            let currentDir = '~';
+            let previousDir = '';
+            let dirStack = [];
+
+            const printLine = (text, className = '') => {
+                const div = document.createElement('div');
+                div.innerHTML = text;
+                if(className) div.className = className;
+                output.appendChild(div);
+                container.scrollTop = container.scrollHeight;
+            };
+
+            const processCommand = (cmd) => {
+                const parts = cmd.trim().split(/\s+/);
+                const command = parts[0].toLowerCase();
+                const args = parts.slice(1);
+
+                if (!command) return;
+
+                const promptStr = `<span class="text-indigo-400 font-bold">gemini@os</span><span class="text-white">:</span><span class="text-blue-400">${currentDir}</span><span class="text-white">$</span> ${cmd}`;
+                printLine(promptStr);
+
+                switch (command) {
+                    case 'help': {
+                        printLine('Available commands:');
+                        printLine('  help       - Show this message');
+                        printLine('  clear      - Clear terminal screen');
+                        printLine('  ls         - List directory contents (-a, -l, -F, -1, -d)');
+                        printLine('  cd         - Change directory (supports -, ..)');
+                        printLine('  pushd/popd - Save and restore current directory');
+                        printLine('  pwd        - Print working directory');
+                        printLine('  mkdir      - Create directory (supports -p)');
+                        printLine('  rmdir      - Remove empty directory');
+                        printLine('  touch      - Create empty file');
+                        printLine('  rm         - Remove file or directory (supports -r)');
+                        printLine('  cp         - Copy files and directories (supports -r)');
+                        printLine('  mv         - Move/Rename files and directories');
+                        printLine('  fdisk      - Manipulate disk partition table (-l)');
+                        printLine('  mount      - Mount a file system');
+                        printLine('  umount     - Unmount file systems');
+                        printLine('  mountpoint - See if a directory is a mountpoint');
+                        printLine('  findmnt    - Find a file system');
+                        printLine('  echo       - Print text');
+                        printLine('  whoami     - Print effective userid');
+                        printLine('  date       - Print current date and time');
+                        printLine('  uname      - Print system information');
+                        printLine('  neofetch   - Show system info with ASCII art');
+                        printLine('  gemini     - Show a diamond shape');
+                        printLine('  cat        - Print file contents');
+                        printLine('  about      - Open System Info app');
+                        printLine('  browser    - Open Web Browser app');
+                        printLine('  files      - Open Files app');
+                        printLine('  editor     - Open Text Editor app');
+                        break;
+                    }
+                    case 'clear': {
+                        output.innerHTML = '';
+                        break;
+                    }
+                    case 'ls': {
+                        let lsOpts = { a: false, l: false, F: false, one: false, d: false };
+                        let lsTargetDir = currentDir;
+                        
+                        args.forEach(arg => {
+                            if (arg.startsWith('-')) {
+                                if (arg.includes('a')) lsOpts.a = true;
+                                if (arg.includes('l')) lsOpts.l = true;
+                                if (arg.includes('F')) lsOpts.F = true;
+                                if (arg.includes('1')) lsOpts.one = true;
+                                if (arg.includes('d')) lsOpts.d = true;
+                                if (arg.includes('R')) printLine('ls: -R is partially supported', 'text-yellow-400');
+                            } else {
+                                lsTargetDir = currentDir === '~' ? `~/${arg}` : `${currentDir}/${arg}`;
+                            }
+                        });
+
+                        if (lsOpts.d) {
+                            printLine(lsOpts.l ? `drwxr-xr-x 2 gemini gemini 4096 Apr 20 12:00 .` : `.`);
+                            break;
+                        }
+
+                        let contents = fileSystem[lsTargetDir];
+                        if (!contents) {
+                            const parentDir = currentDir;
+                            if (fileSystem[parentDir] && fileSystem[parentDir].includes(args[args.length-1])) {
+                                printLine(args[args.length-1]);
+                            } else {
+                                printLine(`ls: cannot access '${args[args.length-1]}': No such file or directory`, 'text-red-400');
+                            }
+                            break;
+                        }
+
+                        let out = [];
+                        contents.forEach(c => {
+                            if (!lsOpts.a && c.startsWith('.')) return;
+                            
+                            const isDir = fileSystem[`${lsTargetDir === '~' ? '~' : lsTargetDir}/${c}`] !== undefined;
+                            let name = c;
+                            if (lsOpts.F && isDir) name += '/';
+                            
+                            if (lsOpts.l) {
+                                const perms = isDir ? 'drwxr-xr-x' : '-rw-r--r--';
+                                const size = isDir ? '4096' : Math.floor(Math.random() * 1000 + 10).toString();
+                                const date = 'Apr 20 12:00';
+                                let colorName = isDir ? `<span class="text-blue-400 font-bold">${name}</span>` : `<span class="text-white">${name}</span>`;
+                                out.push(`${perms} 1 gemini gemini ${size.padStart(5)} ${date} ${colorName}`);
+                            } else {
+                                let colorName = isDir ? `<span class="text-blue-400 font-bold">${name}</span>` : `<span class="text-white">${name}</span>`;
+                                out.push(colorName);
+                            }
+                        });
+
+                        if (out.length > 0) {
+                            if (lsOpts.l || lsOpts.one) {
+                                out.forEach(line => printLine(line));
+                            } else {
+                                printLine(out.join('  '));
+                            }
+                        }
+                        break;
+                    }
+                    case 'cd': {
+                        const target = args[0] || '~';
+                        let newPath = currentDir;
+                        if (target === '-') {
+                            if (!previousDir) {
+                                printLine('cd: OLDPWD not set', 'text-red-400');
+                                break;
+                            }
+                            newPath = previousDir;
+                            printLine(newPath.replace('~', '/home/gemini'));
+                        } else if (target === '..') {
+                            if (currentDir !== '~') {
+                                const pathParts = currentDir.split('/');
+                                pathParts.pop();
+                                newPath = pathParts.join('/') || '~';
+                            }
+                        } else if (target === '~') {
+                            newPath = '~';
+                        } else {
+                            newPath = currentDir === '~' ? `~/${target}` : `${currentDir}/${target}`;
+                        }
+                        
+                        if (newPath === currentDir) {
+                            // do nothing
+                        } else if (fileSystem[newPath] !== undefined) {
+                            previousDir = currentDir;
+                            currentDir = newPath;
+                        } else {
+                            printLine(`cd: ${target}: No such directory`, 'text-red-400');
+                        }
+                        bodyEl.querySelector('.text-blue-400').innerText = currentDir;
+                        break;
+                    }
+                    case 'pushd': {
+                        const pTarget = args[0];
+                        if (pTarget) {
+                            dirStack.push(currentDir);
+                            let targetPath = currentDir === '~' ? `~/${pTarget}` : `${currentDir}/${pTarget}`;
+                            if (pTarget === '~') targetPath = '~';
+                            if (pTarget === '..') {
+                                const pathParts = currentDir.split('/');
+                                pathParts.pop();
+                                targetPath = pathParts.join('/') || '~';
+                            }
+                            if (fileSystem[targetPath] !== undefined) {
+                                previousDir = currentDir;
+                                currentDir = targetPath;
+                                bodyEl.querySelector('.text-blue-400').innerText = currentDir;
+                                printLine(`${currentDir} ${dirStack.join(' ')}`);
+                            } else {
+                                printLine(`pushd: ${pTarget}: No such directory`, 'text-red-400');
+                                dirStack.pop();
+                            }
+                        } else {
+                            printLine('pushd: no other directory', 'text-red-400');
+                        }
+                        break;
+                    }
+                    case 'popd': {
+                        if (dirStack.length > 0) {
+                            previousDir = currentDir;
+                            currentDir = dirStack.pop();
+                            bodyEl.querySelector('.text-blue-400').innerText = currentDir;
+                            printLine(`${currentDir} ${dirStack.join(' ')}`);
+                        } else {
+                            printLine('popd: directory stack empty', 'text-red-400');
+                        }
+                        break;
+                    }
+                    case 'pwd': {
+                        printLine(currentDir.replace('~', '/home/gemini'));
+                        break;
+                    }
+                    case 'mkdir': {
+                        let mTarget = args[0];
+                        let isP = false;
+                        if (args[0] === '-p') { isP = true; mTarget = args[1]; }
+                        
+                        if (!mTarget) {
+                            printLine('mkdir: missing operand', 'text-red-400');
+                        } else {
+                            const targetPath = currentDir === '~' ? `~/${mTarget}` : `${currentDir}/${mTarget}`;
+                            if (fileSystem[targetPath]) {
+                                if (!isP) printLine(`mkdir: cannot create directory '${mTarget}': File exists`, 'text-red-400');
+                            } else {
+                                fileSystem[targetPath] = [];
+                                fileSystem[currentDir].push(mTarget);
+                            }
+                        }
+                        break;
+                    }
+                    case 'rmdir': {
+                        const rdTarget = args[0];
+                        if (!rdTarget) {
+                            printLine('rmdir: missing operand', 'text-red-400');
+                        } else {
+                            const targetPath = currentDir === '~' ? `~/${rdTarget}` : `${currentDir}/${rdTarget}`;
+                            if (fileSystem[targetPath] === undefined) {
+                                printLine(`rmdir: failed to remove '${rdTarget}': No such file or directory`, 'text-red-400');
+                            } else if (fileSystem[targetPath].length > 0) {
+                                printLine(`rmdir: failed to remove '${rdTarget}': Directory not empty`, 'text-red-400');
+                            } else {
+                                delete fileSystem[targetPath];
+                                const idx = fileSystem[currentDir].indexOf(rdTarget);
+                                if (idx > -1) fileSystem[currentDir].splice(idx, 1);
+                            }
+                        }
+                        break;
+                    }
+                    case 'touch': {
+                        const fileName = args[0];
+                        if (!fileName) {
+                            printLine('touch: missing operand', 'text-red-400');
+                        } else {
+                            if (!fileSystem[currentDir].includes(fileName)) {
+                                fileSystem[currentDir].push(fileName);
+                                const fullPath = currentDir === '~' ? `~/${fileName}` : `${currentDir}/${fileName}`;
+                                fileContents[fullPath] = ''; // ファイルの中身を空で初期化
+                            }
+                        }
+                        break;
+                    }
+                    case 'rm': {
+                        const isRecursive = args[0] === '-r' || args[0] === '-rf';
+                        const rTarget = isRecursive ? args[1] : args[0];
+                        if (!rTarget) {
+                            printLine('rm: missing operand', 'text-red-400');
+                        } else {
+                            const targetPath = currentDir === '~' ? `~/${rTarget}` : `${currentDir}/${rTarget}`;
+                            const index = fileSystem[currentDir].indexOf(rTarget);
+                            if (index > -1) {
+                                if (fileSystem[targetPath] !== undefined) {
+                                    if (!isRecursive) {
+                                        printLine(`rm: cannot remove '${rTarget}': Is a directory`, 'text-red-400');
+                                    } else {
+                                        Object.keys(fileSystem).forEach(k => {
+                                            if (k === targetPath || k.startsWith(targetPath + '/')) {
+                                                delete fileSystem[k];
+                                            }
+                                        });
+                                        fileSystem[currentDir].splice(index, 1);
+                                    }
+                                } else {
+                                    fileSystem[currentDir].splice(index, 1);
+                                }
+                            } else {
+                                printLine(`rm: cannot remove '${rTarget}': No such file or directory`, 'text-red-400');
+                            }
+                        }
+                        break;
+                    }
+                    case 'cp': {
+                        const cpRecurse = args[0] === '-r';
+                        const cpSrc = cpRecurse ? args[1] : args[0];
+                        const cpDest = cpRecurse ? args[2] : args[1];
+                        
+                        if (!cpSrc || !cpDest) {
+                            printLine('cp: missing operand', 'text-red-400');
+                        } else {
+                            const srcIndex = fileSystem[currentDir].indexOf(cpSrc);
+                            if (srcIndex === -1) {
+                                printLine(`cp: cannot stat '${cpSrc}': No such file or directory`, 'text-red-400');
+                            } else {
+                                const srcPath = currentDir === '~' ? `~/${cpSrc}` : `${currentDir}/${cpSrc}`;
+                                const isDir = fileSystem[srcPath] !== undefined;
+                                if (isDir && !cpRecurse) {
+                                    printLine(`cp: -r not specified; omitting directory '${cpSrc}'`, 'text-red-400');
+                                } else if (!isDir) {
+                                    if (!fileSystem[currentDir].includes(cpDest)) fileSystem[currentDir].push(cpDest);
+                                } else {
+                                    const destPath = currentDir === '~' ? `~/${cpDest}` : `${currentDir}/${cpDest}`;
+                                    fileSystem[destPath] = [...fileSystem[srcPath]];
+                                    if (!fileSystem[currentDir].includes(cpDest)) fileSystem[currentDir].push(cpDest);
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    case 'mv': {
+                        const mvSrc = args[0];
+                        const mvDest = args[1];
+                        if (!mvSrc || !mvDest) {
+                            printLine('mv: missing operand', 'text-red-400');
+                        } else {
+                            const srcIdx = fileSystem[currentDir].indexOf(mvSrc);
+                            if (srcIdx === -1) {
+                                printLine(`mv: cannot stat '${mvSrc}': No such file or directory`, 'text-red-400');
+                            } else {
+                                const srcPath = currentDir === '~' ? `~/${mvSrc}` : `${currentDir}/${mvSrc}`;
+                                const isDir = fileSystem[srcPath] !== undefined;
+                                
+                                fileSystem[currentDir][srcIdx] = mvDest;
+                                if (isDir) {
+                                    const destPath = currentDir === '~' ? `~/${mvDest}` : `${currentDir}/${mvDest}`;
+                                    fileSystem[destPath] = fileSystem[srcPath];
+                                    delete fileSystem[srcPath];
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    case 'fdisk': {
+                        if (args[0] === '-l') {
+                            printLine('Disk /dev/vda: 50 GiB, 53687091200 bytes, 104857600 sectors');
+                            printLine('Units: sectors of 1 * 512 = 512 bytes');
+                            printLine('Sector size (logical/physical): 512 bytes / 512 bytes');
+                            printLine('Device     Boot Start       End   Sectors Size Id Type');
+                            printLine('/dev/vda1  * 2048 104857566 104855519  50G 83 Linux');
+                        } else {
+                            printLine('fdisk: missing operand', 'text-red-400');
+                        }
+                        break;
+                    }
+                    case 'mount': {
+                        if (args.length === 0) {
+                            printLine('sysfs on /sys type sysfs (rw,nosuid,nodev,noexec,relatime)');
+                            printLine('proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)');
+                            printLine('udev on /dev type devtmpfs (rw,nosuid,relatime,size=4000k,nr_inodes=1000k,mode=755)');
+                            printLine('/dev/vda1 on / type ext4 (rw,relatime)');
+                        } else {
+                            printLine(`mount: ${args.join(' ')} mounted successfully. (simulated)`);
+                        }
+                        break;
+                    }
+                    case 'umount': {
+                        if (!args[0]) printLine('umount: missing operand', 'text-red-400');
+                        else printLine(`umount: ${args[0]}: target is busy.`, 'text-red-400');
+                        break;
+                    }
+                    case 'mountpoint': {
+                        if (!args[0]) {
+                            printLine('mountpoint: missing operand', 'text-red-400');
+                        } else {
+                            if (args[0] === '/') printLine(`${args[0]} is a mountpoint`);
+                            else printLine(`${args[0]} is not a mountpoint`);
+                        }
+                        break;
+                    }
+                    case 'findmnt': {
+                        printLine('TARGET  SOURCE    FSTYPE OPTIONS');
+                        printLine('/       /dev/vda1 ext4   rw,relatime');
+                        printLine('├─/sys  sysfs     sysfs  rw,nosuid,nodev,noexec,relatime');
+                        printLine('└─/proc proc      proc   rw,nosuid,nodev,noexec,relatime');
+                        break;
+                    }
+                    case 'echo': {
+                        printLine(args.join(' '));
+                        break;
+                    }
+                    case 'whoami': {
+                        printLine('gemini');
+                        break;
+                    }
+                    case 'date': {
+                        printLine(new Date().toString());
+                        break;
+                    }
+                    case 'uname': {
+                        printLine('Linux gemini-web 6.5.0-gemini #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux');
+                        break;
+                    }
+                    case 'cat': {
+                        const file = args[0];
+                        if(!file) {
+                             printLine(`cat: missing operand`, 'text-red-400');
+                        } else {
+                            const fullPath = currentDir === '~' ? `~/${file}` : `${currentDir}/${file}`;
+                            if (fileSystem[currentDir] && fileSystem[currentDir].includes(file)) {
+                                if (fileSystem[fullPath]) {
+                                    printLine(`cat: ${file}: Is a directory`, 'text-red-400');
+                                } else {
+                                    const content = fileContents[fullPath] !== undefined ? fileContents[fullPath] : '';
+                                    printLine(`<div class="whitespace-pre-wrap">${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`);
+                                }
+                            } else {
+                                printLine(`cat: ${file}: No such file or directory`, 'text-red-400');
+                            }
+                        }
+                        break;
+                    }
+                    case 'neofetch': {
+                        const art = `
+<span class="text-indigo-400 font-bold">    /\\</span>
+<span class="text-indigo-400 font-bold">   /  \\</span>
+<span class="text-indigo-400 font-bold">  /____\\</span>
+<span class="text-indigo-400 font-bold"> /      \\</span>
+<span class="text-indigo-400 font-bold">/________\\</span>`;
+                        const info = `
+<div class="flex gap-6 mt-2 mb-2">
+    <div class="whitespace-pre font-mono leading-tight">${art}</div>
+    <div class="leading-tight">
+        <span class="text-indigo-400 font-bold">gemini</span>@<span class="text-indigo-400 font-bold">os</span><br>
+        -------------------------<br>
+        <span class="text-indigo-400 font-bold">OS</span>: GeminiOS Web Edition<br>
+        <span class="text-indigo-400 font-bold">Kernel</span>: Linux 6.5.0-gemini<br>
+        <span class="text-indigo-400 font-bold">Uptime</span>: 1 min<br>
+        <span class="text-indigo-400 font-bold">Packages</span>: 42 (dpkg)<br>
+        <span class="text-indigo-400 font-bold">Shell</span>: bash 5.1.16<br>
+        <span class="text-indigo-400 font-bold">DE</span>: Gemini Desktop<br>
+        <span class="text-indigo-400 font-bold">WM</span>: GeminiWM<br>
+        <span class="text-indigo-400 font-bold">Terminal</span>: GeminiTerm<br>
+    </div>
+</div>`;
+                        printLine(info);
+                        break;
+                    }
+                    case 'gemini': {
+                        const diamond = `
+<span class="text-indigo-400 font-bold">      /\\      </span>
+<span class="text-indigo-400 font-bold">     /  \\     </span>
+<span class="text-indigo-400 font-bold">    /    \\    </span>
+<span class="text-indigo-400 font-bold">   /      \\   </span>
+<span class="text-indigo-400 font-bold">   \\      /   </span>
+<span class="text-indigo-400 font-bold">    \\    /    </span>
+<span class="text-indigo-400 font-bold">     \\  /     </span>
+<span class="text-indigo-400 font-bold">      \\/      </span>`;
+                        printLine(`<div class="whitespace-pre font-mono leading-tight mt-2 mb-2">${diamond}</div>`);
+                        break;
+                    }
+                    case 'megane': {
+                        const meganeArt = `
+<span class="text-pink-400 font-bold">  .-"-.       .-"-.  </span>
+<span class="text-pink-400 font-bold"> / O O \\     / O O \\ </span>
+<span class="text-pink-400 font-bold">|   _   |---|   _   |</span>
+<span class="text-pink-400 font-bold"> \\ \\_/ /     \\ \\_/ / </span>
+<span class="text-pink-400 font-bold">  \`---\`       \`---\`  </span>`;
+                        printLine(`<div class="whitespace-pre font-mono leading-tight mt-2 mb-2">${meganeArt}</div>`);
+                        
+                        if (container.classList.contains('text-xl')) {
+                            container.classList.remove('text-xl');
+                            printLine('👓 メガネを外しました。視界が通常に戻りました。', 'text-gray-400');
+                        } else {
+                            container.classList.add('text-xl');
+                            printLine('👓 メガネを装備しました！文字が拡大されてよく見えます！', 'text-yellow-400 font-bold');
+                        }
+                        break;
+                    }
+                    case 'about':
+                    case 'systeminfo': {
+                        openWindow('about');
+                        printLine('Opened System Info window.', 'text-green-400');
+                        break;
+                    }
+                    case 'browser':
+                    case 'files':
+                    case 'editor': {
+                        openWindow(command);
+                        printLine(`Opened ${command} app.`, 'text-green-400');
+                        break;
+                    }
+                    default: {
+                        printLine(`Command not found: ${command}`, 'text-red-400');
+                    }
+                }
+            };
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const cmd = input.value;
+                    input.value = '';
+                    processCommand(cmd);
+                }
+            });
+            
+            // 初回フォーカス
+            setTimeout(() => input.focus(), 100);
+        }
+
+        // --- Files (ファイルマネージャー) ロジック ---
+        function initFiles(bodyEl) {
+            let currentPath = '~';
+            const grid = bodyEl.querySelector('.files-grid');
+            const pathDisplay = bodyEl.querySelector('.current-path');
+
+            const renderFiles = () => {
+                grid.innerHTML = '';
+                pathDisplay.innerText = currentPath;
+                const items = fileSystem[currentPath] || [];
+
+                items.forEach(item => {
+                    // .bashrc などの隠しファイルはUI上は見やすくするため省略
+                    if (item.startsWith('.') && item !== '.bashrc' && item !== '.profile') return;
+
+                    const fullPath = currentPath === '~' ? `~/${item}` : `${currentPath}/${item}`;
+                    const isDir = fileSystem[fullPath] !== undefined;
+                    
+                    let iconClass = 'fa-solid fa-file text-gray-400';
+                    if (isDir) iconClass = 'fa-solid fa-folder text-blue-400';
+                    else if (item.endsWith('.png') || item.endsWith('.jpg')) iconClass = 'fa-solid fa-file-image text-green-400';
+                    else if (item.endsWith('.txt') || item.endsWith('.js') || item.endsWith('.html') || item.endsWith('.doc')) iconClass = 'fa-solid fa-file-lines text-yellow-400';
+
+                    const div = document.createElement('div');
+                    div.className = 'flex flex-col items-center p-2 hover:bg-white/10 rounded cursor-pointer group text-center';
+                    div.innerHTML = `
+                        <i class="${iconClass} text-4xl mb-2 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-xs text-gray-300 break-all w-full leading-tight">${item}</span>
+                    `;
+
+                    // ダブルクリック/タップの処理
+                    const handleOpen = () => {
+                        if (isDir) {
+                            currentPath = fullPath;
+                            renderFiles();
+                        } else {
+                            openWindow('editor', { filePath: fullPath });
+                        }
+                    };
+
+                    div.ondblclick = handleOpen;
+                    let tapCount = 0;
+                    div.ontouchend = (e) => {
+                        tapCount++;
+                        if (tapCount === 1) {
+                            setTimeout(() => tapCount = 0, 300);
+                        } else if (tapCount === 2) {
+                            handleOpen();
+                            tapCount = 0;
+                        }
+                    };
+                    grid.appendChild(div);
+                });
+            };
+
+            bodyEl.querySelector('.btn-up').onclick = () => {
+                if (currentPath !== '~') {
+                    const parts = currentPath.split('/');
+                    parts.pop();
+                    currentPath = parts.join('/') || '~';
+                    renderFiles();
+                }
+            };
+            bodyEl.querySelector('.btn-refresh').onclick = renderFiles;
+            
+            bodyEl.querySelectorAll('.nav-item').forEach(el => {
+                el.onclick = () => {
+                    currentPath = el.dataset.path;
+                    renderFiles();
+                }
+            });
+
+            // 初期描画
+            renderFiles();
+        }
+
+        // --- エディターロジック ---
+        function initEditor(bodyEl, options) {
+            const textarea = bodyEl.querySelector('.editor-textarea');
+            const pathDisplay = bodyEl.querySelector('.editor-filepath');
+            const saveBtn = bodyEl.querySelector('.btn-save');
+            
+            let currentFile = options?.filePath || null;
+
+            if (currentFile) {
+                pathDisplay.innerText = currentFile;
+                textarea.value = fileContents[currentFile] || '';
+            } else {
+                pathDisplay.innerText = '~/New_File.txt';
+                currentFile = '~/New_File.txt';
+                textarea.value = '# Welcome to GeminiOS Note Editor\\n\\nHere you can type anything you want.';
+            }
+
+            setTimeout(() => textarea.focus(), 100);
+
+            saveBtn.onclick = () => {
+                fileContents[currentFile] = textarea.value;
+                
+                // ファイルシステムに存在しない場合は追加する
+                const parts = currentFile.split('/');
+                const fileName = parts.pop();
+                const dirPath = parts.join('/') || '~';
+                
+                if (fileSystem[dirPath]) {
+                    if (!fileSystem[dirPath].includes(fileName)) {
+                        fileSystem[dirPath].push(fileName);
+                    }
+                } else {
+                    // ディレクトリが存在しない場合のフォールバック
+                    currentFile = `~/${fileName}`;
+                    pathDisplay.innerText = currentFile;
+                    if (!fileSystem['~'].includes(fileName)) {
+                        fileSystem['~'].push(fileName);
+                    }
+                    fileContents[currentFile] = textarea.value;
+                }
+                
+                // 保存完了フィードバック
+                const oldText = saveBtn.innerHTML;
+                saveBtn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>Saved!';
+                saveBtn.classList.add('text-green-400');
+                saveBtn.classList.remove('text-indigo-400');
+                
+                // Filesアプリが開いていれば更新させる
+                if (windows['files']) {
+                    const refreshBtn = windows['files'].element.querySelector('.btn-refresh');
+                    if(refreshBtn) refreshBtn.click();
+                }
+
+                setTimeout(() => {
+                    saveBtn.innerHTML = oldText;
+                    saveBtn.classList.remove('text-green-400');
+                    saveBtn.classList.add('text-indigo-400');
+                }, 1500);
+            };
+        }
+
+        // --- ブラウザロジック ---
+        function initBrowser(bodyEl) {
+            const searchInput = bodyEl.querySelector('#browser-search');
+            const contentArea = bodyEl.querySelector('#browser-content');
+            const homeBtn = bodyEl.querySelector('.btn-home');
+
+            const goHome = () => {
+                searchInput.value = '';
+                contentArea.innerHTML = `
+                    <div class="flex flex-col items-center justify-center min-h-full p-4">
+                        <i class="fa-brands fa-wikipedia-w text-6xl mb-6 text-gray-500/60"></i>
+                        <div class="text-center">
+                            <p class="text-lg text-gray-700 mb-2 font-medium">Wikipedia 検索</p>
+                            <p class="text-xs text-gray-500">上の検索バーにキーワードを入力してEnterを押してください</p>
+                        </div>
+                    </div>
+                `;
+            };
+
+            homeBtn.onclick = goHome;
+
+            const loadWikiPage = async (title) => {
+                searchInput.value = title;
+                contentArea.innerHTML = '<div class="p-8 text-center text-gray-600 flex flex-col items-center justify-center min-h-full"><i class="fa-solid fa-spinner fa-spin text-3xl mb-4"></i><p>記事を読み込み中...</p></div>';
+                try {
+                    // WikipediaのAPIからHTMLデータ全体を取得 (全文)
+                    const res = await fetch(`https://ja.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&origin=*&disableeditsection=true`);
+                    const data = await res.json();
+                    
+                    if (data.error) {
+                        contentArea.innerHTML = '<div class="p-8 text-center text-red-500 flex flex-col items-center justify-center min-h-full"><p>記事が見つかりませんでした。</p></div>';
+                        return;
+                    }
+
+                    const htmlContent = data.parse.text['*'];
+                    contentArea.innerHTML = `
+                        <div class="p-4 sm:p-8 bg-transparent min-h-full">
+                            <div class="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 w-full max-w-4xl mx-auto p-6 sm:p-10 relative overflow-hidden">
+                                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-80"></div>
+                                <h1 class="text-3xl font-extrabold text-gray-900 mb-6 pb-4 border-b border-gray-300 flex items-center gap-3">
+                                    <i class="fa-brands fa-wikipedia-w text-gray-400 text-3xl"></i>
+                                    ${data.parse.title}
+                                </h1>
+                                <div class="wiki-summary text-left">${htmlContent}</div>
+                            </div>
+                        </div>
+                    `;
+                    // 読み込み完了後に一番上までスクロール
+                    contentArea.scrollTop = 0;
+                } catch (err) {
+                    contentArea.innerHTML = '<div class="p-8 text-center text-red-500 flex flex-col items-center justify-center min-h-full"><i class="fa-solid fa-triangle-exclamation text-3xl mb-4"></i><p>通信エラーが発生しました。</p></div>';
+                }
+            };
+
+            // リンククリックのイベント委譲（OS内でページ遷移させるための処理）
+            contentArea.addEventListener('click', (e) => {
+                // 1. 検索結果からのリンクをクリックした場合
+                const searchLink = e.target.closest('.wiki-search-link');
+                if (searchLink) {
+                    e.preventDefault();
+                    loadWikiPage(searchLink.dataset.title);
+                    return;
+                }
+
+                // 2. 記事内のWikipedia内部リンク（/wiki/...）をクリックした場合
+                const articleLink = e.target.closest('a[href^="/wiki/"]');
+                if (articleLink) {
+                    e.preventDefault();
+                    let href = articleLink.getAttribute('href');
+                    let title = href.replace('/wiki/', '').split('#')[0]; // アンカーリンク(#)は除外
+                    if(title && !title.includes(':')) { // ファイルやカテゴリなどの特殊ページは除外
+                        loadWikiPage(decodeURIComponent(title));
+                    }
+                    return;
+                }
+
+                // 3. その他の外部リンク
+                const externalLink = e.target.closest('a[href^="http"]');
+                if (externalLink) {
+                    externalLink.setAttribute('target', '_blank');
+                }
+            });
+
+            searchInput.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter') {
+                    const query = searchInput.value.trim();
+                    if (!query) return;
+                    
+                    contentArea.innerHTML = '<div class="p-8 text-center text-gray-600 flex flex-col items-center justify-center min-h-full"><i class="fa-solid fa-spinner fa-spin text-3xl mb-4"></i><p>検索中...</p></div>';
+                    
+                    try {
+                        const res = await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`);
+                        const data = await res.json();
+                        const results = data.query.search;
+                        
+                        if (results.length === 0) {
+                            contentArea.innerHTML = '<div class="p-8 text-center text-gray-600 flex flex-col items-center justify-center min-h-full">結果が見つかりませんでした。</div>';
+                            return;
+                        }
+                        
+                        let html = `<div class="p-6 sm:p-8 bg-transparent min-h-full">
+                            <div class="bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 max-w-4xl mx-auto p-6">
+                                <h2 class="text-xl mb-4 border-b border-gray-300 pb-2 text-black font-bold">「${query}」の検索結果</h2>
+                                <div class="space-y-5">`;
+                        
+                        results.forEach(item => {
+                            const url = `https://ja.wikipedia.org/wiki/${encodeURIComponent(item.title)}`;
+                            html += `
+                                <div>
+                                    <a href="#" data-title="${item.title}" class="wiki-search-link text-blue-600 text-lg hover:underline font-medium block">${item.title}</a>
+                                    <p class="text-xs text-green-700 truncate mb-1">${url}</p>
+                                    <p class="text-sm text-gray-800 leading-snug">${item.snippet}...</p>
+                                </div>
+                            `;
+                        });
+                        html += '</div></div></div>';
+                        contentArea.innerHTML = html;
+                        contentArea.scrollTop = 0;
+                    } catch (err) {
+                        contentArea.innerHTML = '<div class="p-8 text-center text-red-500 flex flex-col items-center justify-center min-h-full"><i class="fa-solid fa-triangle-exclamation text-3xl mb-4"></i><p>通信エラーが発生しました。</p></div>';
+                    }
+                }
+            });
+            
+            // 初回フォーカス
+            setTimeout(() => searchInput.focus(), 100);
+        }
+
+    </script>
+</body>
+</html>
